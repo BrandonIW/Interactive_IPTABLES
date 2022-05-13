@@ -1,0 +1,2 @@
+# Interactive_IPTABLES
+Four separate bash scripts to edit iptable rules on a unix system. One script to simply reset all firewall rules back to default (Flush and policies set to ACCEPT). One script to allow users to create custom rules for outbound packets to specific Ports and/or IP addresses. A third sscript to initially setup the firewall with default configurations. A final script to allow the deletion of specific firewall rules 
