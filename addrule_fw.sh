@@ -169,7 +169,7 @@ function check_continue () {
 		case "$yn" in
 			y|Y|[yY]es) break;;
 			n|N|[nN]o) printf "Exting program..."; exit 0;;
-			*) printf "Select Y/N"
+			*) printf "Select Y/N\n"
 		esac
 	done
 }    # ----------  end of function check_continue  ----------

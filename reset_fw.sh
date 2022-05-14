@@ -9,7 +9,8 @@
 #                 for all chains. 
 # 
 #       OPTIONS:  ---
-#  REQUIREMENTS:  ---
+#  REQUIREMENTS:  1) Must have sudo privledges 
+#		  2) Script must have r/x permissions
 #          BUGS:  ---
 #         NOTES:  ---
 #        AUTHOR:  Brandon Wittet (), Brandon.wittet@gmail.com
@@ -19,4 +20,29 @@
 #      REVISION:  ---
 #===============================================================================
 
+function main () {
+	check_user
+	return_val=$?
+	if [[ "$return_val" -eq 1 ]]; then
+		echo "You must run this program with sudo"
+		exit 1
+	fi
+
+	printf "Resetting Firewall Rules...\n"; sleep 1
+	iptables -F; echo
+	iptables -P INPUT ACCEPT; iptables -P OUTPUT ACCEPT; iptables -P FORWARD ACCEPT
+	printf "Tables reset. New tables:\n"
+	iptables -L
+
+}    # ----------  end of function main  ----------
+
+
+
+function check_user () {
+	if [[ $UID -ne 0 ]]; then
+		return 1
+	fi
+
+}    # ----------  end of function check_user  ----------
+main
 
