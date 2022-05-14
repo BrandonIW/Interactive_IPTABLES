@@ -64,33 +64,34 @@ function delete_rule () {
 function forward_chain_delete () {
 	check_if_rules "FORWARD"
 	return_val=$?
-	
 	if [[ "$return_val" -eq 1 ]]; then
 		printf "There are no iptable rules in this chain. Select another chain, or exit program\n"
 		return 0
 	fi
-	
-	                                                                                                             
-        IFS=$'\n'                                                                                                    
-        rules=($(iptables -L FORWARD --line-numbers | awk '/^[0-9]/'))                                                 	     num_rules="${#rules[@]}"                                                                                    
-                                                                                                                     
-                                                                                                                     
-        printf "Select the number associated with the rule you want to delete: \n"                                  
-        iptables -L FORWARD --line-numbers | awk '/^num/'                                                                                                                                                        
-                                                                                                                     
-        select option in "${rules[@]}"; do                                                                           
-                num_select=$(echo $option | cut -d ' ' -f 1)                                                         
-                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then                       
-                        iptables -D FORWARD "$num_select"                                                              
-                        printf "Rule deleted. New FORWARD Chain:\n"                                                                          iptables -L FORWARD 
-			rules=($(iptables -L FORWARD --line-numbers | awk '/^[0-9]/'))                                                       num_rules="${#rules[@]}"                                                                     
-                                                                                                                     
-                        check_continue                                                                               
-                        return                                                                                       
-                else                                                                                                 
-                        printf "Invalid rule selected. Try again\n"                                                  
-                fi                                                                                                   
-        done                                                                     
+
+        IFS=$'\n'
+        rules=($(iptables -L FORWARD --line-numbers | awk '/^[0-9]/'))
+        num_rules="${#rules[@]}"
+
+        printf "Select the number associated with the rule you want to delete: \n"
+        iptables -L FORWARD --line-numbers | awk '/^num/'
+
+        select option in "${rules[@]}"; do
+                num_select=$(echo $option | cut -d ' ' -f 1)
+                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then
+                        iptables -D FORWARD "$num_select"
+                        printf "Rule deleted. New FORWARD Chain:\n"
+			iptables -L FORWARD 
+
+			rules=($(iptables -L FORWARD --line-numbers | awk '/^[0-9]/'))
+			num_rules="${#rules[@]}"
+
+                        check_continue
+                        return
+                else
+                        printf "Invalid rule selected. Try again\n"
+                fi
+        done
 }    # ----------  end of function forward_chain_delete  ----------
 
 
@@ -98,7 +99,7 @@ function forward_chain_delete () {
 function input_chain_delete () {
 	check_if_rules "INPUT"
 	return_val=$?
-	
+
 	if [[ "$return_val" -eq 1 ]]; then
 		printf "There are no iptable rules in this chain. Select another chain, or exit program\n"
 		return 0
@@ -109,11 +110,9 @@ function input_chain_delete () {
 	rules=($(iptables -L INPUT --line-numbers | awk '/^[0-9]/'))
 	num_rules="${#rules[@]}"
 
-
-	printf "Select the number associated with the rule you want to delete: \n"	
+	printf "Select the number associated with the rule you want to delete: \n"
         iptables -L INPUT --line-numbers | awk '/^num/'
-	
-	
+
 	select option in "${rules[@]}"; do
 		num_select=$(echo $option | cut -d ' ' -f 1)
 		if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then
@@ -121,8 +120,9 @@ function input_chain_delete () {
 			printf "Rule deleted. New INPUT Chain:\n"
 			iptables -L INPUT
 
-			rules=($(iptables -L INPUT --line-numbers | awk '/^[0-9]/'))                                                 	     num_rules="${#rules[@]}"
-			
+			rules=($(iptables -L INPUT --line-numbers | awk '/^[0-9]/'))
+			num_rules="${#rules[@]}"
+
 			check_continue 
 			return 
 		else
@@ -142,26 +142,32 @@ function output_chain_delete () {
 		printf "There are no iptable rules in this chain. Select another chain, or exit program\n"
 		return 0
 	fi
-	
-	
-        IFS=$'\n'                                                                                                    
-        rules=($(iptables -L OUTPUT --line-numbers | awk '/^[0-9]/'))                                                        num_rules="${#rules[@]}"                                                                                                                                                                                                  
-        printf "Select the number associated with the rule you want to delete: \n"                                   
-        iptables -L OUTPUT --line-numbers | awk '/^num/'                                                             
-                                                                                                                     
-        select option in "${rules[@]}"; do                                                                           
-                num_select=$(echo $option | cut -d ' ' -f 1)                                                         
-                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then                       
-                        iptables -D OUTPUT "$num_select"                                                             
+
+
+        IFS=$'\n'
+        rules=($(iptables -L OUTPUT --line-numbers | awk '/^[0-9]/'))
+	num_rules="${#rules[@]}"
+
+        printf "Select the number associated with the rule you want to delete: \n"
+        iptables -L OUTPUT --line-numbers | awk '/^num/'
+
+        select option in "${rules[@]}"; do
+                num_select=$(echo $option | cut -d ' ' -f 1)
+
+                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then
+                        iptables -D OUTPUT "$num_select"
                         printf "Rule deleted. New OUTPUT Chain:\n"
-			iptables -L OUTPUT                                                                            
-                        rules=($(iptables -L OUTPUT --line-numbers | awk '/^[0-9]/'))                                                        num_rules="${#rules[@]}"                                                                                           
-                        check_continue                                                                               
-                        return                                                                                       
-                else                                                                                                 
-                        printf "Invalid rule selected. Try again\n"                                                  
-                fi                                                                                                   
-        done                                                                     	
+			iptables -L OUTPUT
+
+                        rules=($(iptables -L OUTPUT --line-numbers | awk '/^[0-9]/'))
+			num_rules="${#rules[@]}"
+
+                        check_continue
+                        return
+                else
+                        printf "Invalid rule selected. Try again\n"
+                fi
+        done
 
 }    # ----------  end of function input_chain_delete  ----------
 
