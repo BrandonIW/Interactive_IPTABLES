@@ -14,7 +14,7 @@
 #       OPTIONS:  ---
 #  REQUIREMENTS:  1) Script must be given r/x permissions
 #                 2) Script must be run with sudo
-#          BUGS:  ---
+#          BUGS:  1) If check_port gets a port with numbers at the beginning, followed by letters, an error is produced
 #         NOTES:  ---
 #        AUTHOR:  Brandon Wittet (), Brandon.wittet@gmail.com
 #       COMPANY:  Open Source
@@ -54,23 +54,52 @@ function main () {
 # ------------------- Firewall Rules and functions ------------------ #
 
 function port_rule () {
-	read -p "Please enter a Destination Port: " port
-	until (([[ "$port" -le 65535 ]] && [[ "$port" -ge 0 ]]; do
-		read -p "Please enter a valid port [0-65535]: " port
-	done
+	port=$(check_port)
 
+	printf "Writing rules...\n"
+	iptables -I OUTPUT 1 -p tcp --dport "$port" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	iptables -I OUTPUT 1 -p udp --dport "$port" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	sleep 1
+
+	printf "New IPTABLE OUTPUT rules shown below\n"
+	iptables -L OUTPUT
+	sleep 1
+
+	check_continue
 		 
 }    # ----------  end of function port_rule  ----------
 
 
 function ip_rule () {
-	echo "test"
+	ip=$(check_ip)
+
+	printf "Writing rules...\n"
+	iptables -I OUTPUT 1 -p tcp -d "$ip" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	iptables -I OUTPUT 1 -p udp -d "$ip" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	sleep 1
+
+	printf "New IPTABLE OUTPUT rules shown below\n"
+	iptables -L OUTPUT
+	sleep 1
+
+	check_continue
 }    # ----------  end of function ip_rule  ----------
 
 
-function ip_port_rule ()
-{
-	pass
+function ip_port_rule () {
+	ip=$(check_ip)
+	port=$(check_port)
+
+	printf "Writing rules...\n"
+	iptables -I OUTPUT 1 -p tcp -d "$ip" --dport "$port" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	iptables -I OUTPUT 1 -p udp -d "$ip" --dport "$port" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	sleep 1
+
+	printf "New IPTABLE OUTPUT rules shown below\n"
+	iptables -L OUTPUT
+	sleep 1
+
+	check_continue
 }    # ----------  end of function ip_port_rule  ----------
 
 
@@ -115,6 +144,7 @@ function check_user () {
 
 }    # ----------  end of function check_user  ----------
 
+
 function check_args () {	
 	if [[ ${#@} -ne 0 ]]; then
 		return 1
@@ -123,8 +153,35 @@ function check_args () {
 }    # ----------  end of function check_args  ----------
 
 
+function check_port () {
+	read -p "Please enter a Destination Port: " port
+	until (( "$port" >= 0 )) && (( "$port" <= 65535 )) && [[ "$port" =~ ^[0-9]+$ ]]; do
+		read -p "Please enter a valid port [0-65535]: " port
+	done
+	
+	printf "$port"
+}    # ----------  end of function check_port  ----------
 
+
+function check_continue () {
+	while true; do
+		read -p "Do you want to make another rule? [y/n]: " yn
+		case "$yn" in
+			y|Y|[yY]es) break;;
+			n|N|[nN]o) printf "Exting program..."; exit 0;;
+			*) printf "Select Y/N"
+		esac
+	done
+}    # ----------  end of function check_continue  ----------
+
+
+function check_ip () {
+	read -p "Please enter a Destination IP and Optional Mask (/32 is assumed if not entered): " ip
+	until [[ "$ip" =~ ((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\/([1-3][0-9]|[1-9]))? ]] && [[ "$ip" == "${BASH_REMATCH[0]}" ]]; do
+		read -p "Please enter a valid IP e.g. 192.168.0.50/24: " ip
+	done
+
+	printf "$ip"
+}    # ----------  end of function check_ip  ----------
 
 main $1
-
-
