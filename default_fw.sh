@@ -61,25 +61,30 @@ function set_default () {
 	iptables -A INPUT -p tcp --syn -j REJECT
 
 	# DROP all tcp packets with SYN and FIN set
-#	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-#	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-#	iptables -A FORWARD -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+	iptables -A FORWARD -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
 
 	# REJECT all Telnet packets
-#	iptables -A INPUT -p tcp --dport 23 -j REJECT
-#	iptables -A OUTPUT -p tcp --sport 23 -j REJECT
+	iptables -I INPUT 1 -p tcp --dport telnet -j REJECT
+	iptables -I OUTPUT 1 -p tcp --sport telnet -j REJECT
+
+	# ACCEPT inbound & outbound SSH
+	iptables -I INPUT 1 -p tcp --dport "$SSH" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+	iptables -I OUTPUT 1 -p tcp --sport "$SSH" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+
+	# ACCEPT outbound HTTP/HTTPS
+	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT	
+	iptables -I OUTPUT 1 -p udp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+
+	# ACCEPT all tcp packets belonging to an existing connection (connections that already exist)
+	iptables -A INPUT -p tcp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
 
 	# Allow tcp traffic across existing session for allowed ports
-#	iptables -I INPUT 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-#	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-#	iptables -I FORWARD 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+	iptables -I INPUT 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+	iptables -I FORWARD 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
 
-	# Allow in/outbound tcp/udp traffic on allowed ports 
-#	iptables -I INPUT 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-#	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-#	iptables -I FORWARD 1 -p tcp --match multiport --dports "$SSH","$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-
-	
 
 
 
