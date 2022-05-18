@@ -2,9 +2,9 @@
 #===============================================================================
 #
 #          FILE:  delrule_fw.sh
-# 
-#         USAGE:  ./delrule_fw.sh 
-# 
+#
+#         USAGE:  ./delrule_fw.sh
+#
 #   DESCRIPTION:  This script allows you to interactively select an IPTABLE rule
 #                 to remove. No options are required for this script, simply run
 #                 it with sudo
@@ -49,14 +49,16 @@ function main () {
 
 function delete_rule () {
 	printf "Select the chain you want to delete a rule from: \n"
-	select option in "INPUT" "OUTPUT" "FORWARD" "Exit"; do
+	select option in "INPUT" "OUTPUT" "FORWARD" "NEW_ESTAB_OUT" "NEW_ESTAB_IN" "Exit"; do
 		case $option in
 			"INPUT") input_chain_delete;;
 			"FORWARD") forward_chain_delete;;
 			"OUTPUT") output_chain_delete;;
-			"Exit") printf "Exiting program..."; exit 0 
+			"NEW_ESTAB_OUT") new_estab_out_delete;;
+			"NEW_ESTAB_IN") new_estab_in_delete;;
+			"Exit") printf "Exiting program..."; exit 0
 		esac
-	done	
+	done
 
 }    # ----------  end of function delete_rule  ----------
 
@@ -169,10 +171,83 @@ function output_chain_delete () {
                 fi
         done
 
-}    # ----------  end of function input_chain_delete  ----------
+}    # ----------  end of function output_chain_delete  ----------
 
 
+function new_estab_out_delete () {
+	check_if_rules "NEW_ESTAB_OUT"
+	return_val=$?
 
+	if [[ "$return_val" -eq 1 ]]; then
+		printf "There are no iptable rules in this chain, or this chain does not exist. Select another chain, or exit program\n"
+		return 0
+	fi
+
+
+        IFS=$'\n'
+        rules=($(iptables -L NEW_ESTAB_OUT --line-numbers | awk '/^[0-9]/'))
+	num_rules="${#rules[@]}"
+
+        printf "Select the number associated with the rule you want to delete: \n"
+        iptables -L NEW_ESTAB_OUT --line-numbers | awk '/^num/'
+
+        select option in "${rules[@]}"; do
+                num_select=$(echo $option | cut -d ' ' -f 1)
+
+                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then
+                        iptables -D NEW_ESTAB_OUT "$num_select"
+                        printf "Rule deleted. New NEW_ESTAB_OUT Chain:\n"
+			iptables -L NEW_ESTAB_OUT
+
+                        rules=($(iptables -L NEW_ESTAB_OUT --line-numbers | awk '/^[0-9]/'))
+			num_rules="${#rules[@]}"
+
+                        check_continue
+                        return
+                else
+                        printf "Invalid rule selected. Try again\n"
+                fi
+        done
+
+}    # ----------  end of function new_estab_out_delete  ----------
+
+
+function new_estab_in_delete () {
+	check_if_rules "NEW_ESTAB_IN"
+	return_val=$?
+
+	if [[ "$return_val" -eq 1 ]]; then
+		printf "There are no iptable rules in this chain, or this chain does not exist. Select another chain, or exit program\n"
+		return 0
+	fi
+
+
+        IFS=$'\n'
+        rules=($(iptables -L NEW_ESTAB_IN --line-numbers | awk '/^[0-9]/'))
+	num_rules="${#rules[@]}"
+
+        printf "Select the number associated with the rule you want to delete: \n"
+        iptables -L NEW_ESTAB_IN --line-numbers | awk '/^num/'
+
+        select option in "${rules[@]}"; do
+                num_select=$(echo $option | cut -d ' ' -f 1)
+
+                if [[ "${num_select:=0}" -ge 1 && "${num_select:=0}" -le "$num_rules" ]]; then
+                        iptables -D NEW_ESTAB_IN "$num_select"
+                        printf "Rule deleted. New NEW_ESTAB_IN Chain:\n"
+			iptables -L NEW_ESTAB_IN
+
+                        rules=($(iptables -L NEW_ESTAB_IN --line-numbers | awk '/^[0-9]/'))
+			num_rules="${#rules[@]}"
+
+                        check_continue
+                        return
+                else
+                        printf "Invalid rule selected. Try again\n"
+                fi
+        done
+
+}    # -------- end of function new_estab_in_delete -------- #
 
 
 
@@ -188,7 +263,7 @@ function menu_selection () {
 	done
 
 }    # ----------  end of function menu_selection  ----------
-		
+
 
 function print_help () {
 	printf "This script allows you to interactively choose the firewall rule you wish to delete by selecting the line number that the firewall rule is associated with.\nSelect the Delete a Firewall Rule option, and you will be shown the line numbers associated with each firewall rule. Select the line number associated with the rule you wish to delete and hit Enter\n"
@@ -233,7 +308,7 @@ function check_args () {
 
 
 function check_if_rules () {
-	if [[ -z $(sudo iptables -L "$1" --line-numbers | awk '/^[0-9]/') ]]; then
+	if [[ -z $(sudo iptables -L "$1" --line-numbers 2> /dev/null | awk '/^[0-9]/') ]]; then
 		return 1
 	fi
 

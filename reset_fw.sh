@@ -2,14 +2,14 @@
 #===============================================================================
 #
 #          FILE:  reset_fw.sh
-# 
-#         USAGE:  ./reset_fw.sh 
-# 
-#   DESCRIPTION:  This script simply resets all IPTABLE rules back to ACCEPT 
-#                 for all chains. 
-# 
+#
+#         USAGE:  ./reset_fw.sh
+#
+#   DESCRIPTION:  This script simply resets all default IPTABLE chains back to ACCEPT
+#                 and also deletes the two custom user-chains if they exist 
+#
 #       OPTIONS:  ---
-#  REQUIREMENTS:  1) Must have sudo privledges 
+#  REQUIREMENTS:  1) Must have sudo privledges
 #		  2) Script must have r/x permissions
 #          BUGS:  ---
 #         NOTES:  ---
@@ -30,7 +30,20 @@ function main () {
 
 	printf "Resetting Firewall Rules...\n"; sleep 1
 	iptables -F; echo
-	iptables -P INPUT ACCEPT; iptables -P OUTPUT ACCEPT; iptables -P FORWARD ACCEPT
+
+	iptables -P INPUT ACCEPT
+	iptables -P OUTPUT ACCEPT
+	iptables -P FORWARD ACCEPT
+
+
+	if [[ ! -z $(iptables -L | grep NEW_ESTAB_IN) ]]; then
+		iptables -X NEW_ESTAB_IN
+	fi
+
+	if [[ ! -z $(iptables -L | grep NEW_ESTAB_OUT) ]]; then
+		iptables -X NEW_ESTAB_OUT
+	fi
+
 	printf "Tables reset. New tables:\n"
 	iptables -L
 

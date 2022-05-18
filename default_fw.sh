@@ -2,21 +2,22 @@
 #===============================================================================
 #
 #          FILE:  default_fw.sh
-# 
-#         USAGE:  ./default_fw.sh 
-# 
-#   DESCRIPTION:  Script to setup default firewall rules. This includes:
-# 		  1) Set all IPTABLE chain policies to DROP 
-#		  2) REJECT incoming SYN packets to ports that are not hosting any services
-#                 3) DROP all TCP packets with SYN and FIN bits set
-#                 4) DROP all Telnet packets
-#                 5) ACCEPT all TCP packets that belong to an existing connection on allowed ports
-#                 6) ACCEPT TCP/UDP packets belonging to allowed ports (Configurable) 
-#                 7) ACCEPT inbound/outbound SSH 
-#                 8) Permit outbound HTTP/HTTPS
-#                 9) Only new and established traffic can pass through the firewall
-#                 10)  
 #
+#         USAGE:  ./default_fw.sh
+#
+#   DESCRIPTION:  Script to setup default firewall rules. This includes:
+#		  1) Create two new user-defined chains to ensure only NEW and ESTABLISHED rules pass through the firewall
+# 		  2) Set all IPTABLE chain policies to DROP
+#		  3) Top level filtering put on OUTPUT and INPUT chains to match NEW and ESTAB traffic. All else is dropped
+#		  4) INBOUND traffic that is new or estab is moved to the NEW_ESTAB_IN Chain for more granular filtering
+#                 5) OUTBOUND traffic that is new or estab is moved to the NEW_ESTAB_OUT Chain for more granular filtering
+#		  6) REJECT incoming SYN packets to ports that are not hosting any services
+#                 7) DROP all TCP packets with SYN and FIN bits set
+#                 8) DROP all Telnet packets
+#                 9) ACCEPT all TCP packets that belong to an existing connection on allowed ports
+#                 10) ACCEPT TCP/UDP packets belonging to allowed ports (Configurable)
+#                 11) ACCEPT inbound/outbound SSH
+#                 12) Permit outbound HTTP/HTTPS only to bcit.ca
 #
 #       OPTIONS:  ---
 #  REQUIREMENTS:  ---
@@ -46,46 +47,73 @@ function main () {
 
 
 function set_default () {
-	# Allowed ports
+	# Ports
 	declare -i SSH=22
 	declare -i HTTP=80
 	declare -i HTTPS=443
 	declare -i DNS=53
-	
-	# Set policies to default
+
+
+#----------------- Broad/Non-Granular Rules for INPUT/OUTPUT Chains ------------------#
+
+
+	# Create two user chains that will filter only NEW and ESTABLISHED traffic
+	iptables -N NEW_ESTAB_IN
+	iptables -N NEW_ESTAB_OUT
+
+	# Set policies to default. User chains will default back to their parent if no rules match, which will DROP
 	iptables -P INPUT DROP
 	iptables -P OUTPUT DROP
 	iptables -P FORWARD DROP
 
-	# REJECT Incoming SYN
-	iptables -A INPUT -p tcp --syn -j REJECT
-
 	# DROP all tcp packets with SYN and FIN set
-	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-	iptables -A FORWARD -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN
+	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN
 
-	# REJECT all Telnet packets
-	iptables -I INPUT 1 -p tcp --dport telnet -j REJECT
-	iptables -I OUTPUT 1 -p tcp --sport telnet -j REJECT
-
-	# ACCEPT inbound & outbound SSH
-	iptables -I INPUT 1 -p tcp --dport "$SSH" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-	iptables -I OUTPUT 1 -p tcp --sport "$SSH" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-
-	# ACCEPT outbound HTTP/HTTPS
-	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT	
-	iptables -I OUTPUT 1 -p udp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-
-	# ACCEPT all tcp packets belonging to an existing connection (connections that already exist)
-	iptables -A INPUT -p tcp --match multiport --dports "$DNS","$HTTP","$HTTPS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-
-	# Allow tcp traffic across existing session for allowed ports
-	iptables -I INPUT 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-	iptables -I OUTPUT 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
-	iptables -I FORWARD 1 -p tcp --match multiport --dports "$HTTP","$HTTPS","$DNS" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+	# Filter ALL traffic for NEW or ESTABLISHED packets only. This is a high-level filter to ensure only NEW/ESTAB packets are accepted by the filter. More granular filtering is then done within NEW_ESTAB
+	iptables -A INPUT -m conntrack --ctstate NEW,ESTABLISHED -j NEW_ESTAB_IN
+	iptables -A OUTPUT -m conntrack --ctstate NEW,ESTABLISHED -j NEW_ESTAB_OUT
 
 
+
+
+#----------------- Granular Rules for User Chains ------------------#
+
+
+	# REJECT Incoming SYN to high ports
+	iptables -A NEW_ESTAB_IN -p tcp --match multiport --dports 1024:65535 --syn -j REJECT
+
+
+	# REJECT all Telnet packets (Source and Destination to protect acting as telnet client or svr)
+	iptables -A NEW_ESTAB_IN -p tcp --dport telnet -j DROP
+	iptables -A NEW_ESTAB_IN -p tcp --sport telnet -j DROP
+	iptables -A NEW_ESTAB_OUT -p tcp --sport telnet -j DROP
+	iptables -A NEW_ESTAB_OUT -p tcp --dport telnet -j DROP
+
+
+	# ACCEPT inbound & outbound SSH (Source & Destination to protect acting as ssh client or svr)
+	iptables -A NEW_ESTAB_IN -p tcp --dport "$SSH" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p tcp --sport "$SSH" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p tcp --dport "$SSH" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p tcp --sport "$SSH" -j ACCEPT
+
+
+	# ACCEPT DNS Packets
+	iptables -A NEW_ESTAB_OUT -p udp --dport "$DNS" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p tcp --dport "$DNS" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p udp --sport "$DNS" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p tcp --sport "$DNS" -j ACCEPT
+
+
+	# Accept all tcp/udp packets for allowed ports
+	#iptables -A NEW_ESTAB_IN -p udp --match multiport --sports "$DNS","$HTTP","$HTTPS" -j ACCEPT
+	#iptables -A NEW_ESTAB_IN -p tcp --match multiport --sports "$DNS","$HTTP","$HTTPS" -j ACCEPT
+
+	# RESTRICT HTTP/HTTPS purely to bcit.ca
+	iptables -I NEW_ESTAB_OUT -p tcp --match multiport --dports "$HTTP","$HTTPS" -d 142.232.230.11 -j ACCEPT
+	iptables -I NEW_ESTAB_IN -p tcp --match multiport --sports "$HTTP","$HTTPS" -s 142.232.230.11 -j ACCEPT		
+		
+	
 
 
 
