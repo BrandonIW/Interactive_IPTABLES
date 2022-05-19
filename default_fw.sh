@@ -53,6 +53,8 @@ function set_default () {
 	declare -i HTTPS=443
 	declare -i DNS=53
 
+	# Configurable Allowed Ports (User can change these to whatever they'd like) 
+	declare -a ports=(555,600)
 
 #----------------- Broad/Non-Granular Rules for INPUT/OUTPUT Chains ------------------#
 
@@ -67,8 +69,8 @@ function set_default () {
 	iptables -P FORWARD DROP
 
 	# DROP all tcp packets with SYN and FIN set
-	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN
-	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN
+	iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+	iptables -A OUTPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
 
 	# Filter ALL traffic for NEW or ESTABLISHED packets only. This is a high-level filter to ensure only NEW/ESTAB packets are accepted by the filter. More granular filtering is then done within NEW_ESTAB
 	iptables -A INPUT -m conntrack --ctstate NEW,ESTABLISHED -j NEW_ESTAB_IN
@@ -106,12 +108,19 @@ function set_default () {
 
 
 	# Accept all tcp/udp packets for allowed ports
-	#iptables -A NEW_ESTAB_IN -p udp --match multiport --sports "$DNS","$HTTP","$HTTPS" -j ACCEPT
-	#iptables -A NEW_ESTAB_IN -p tcp --match multiport --sports "$DNS","$HTTP","$HTTPS" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p udp --match multiport --sports "${ports[@]}" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p tcp --match multiport --sports "${ports[@]}" -j ACCEPT
+	iptables -A NEW_ESTAB_IN -p udp --match multiport --dports "${ports[@]}" -j ACCEPT	
+	iptables -A NEW_ESTAB_IN -p tcp --match multiport --dports "${ports[@]}" -j ACCEPT	
+	iptables -A NEW_ESTAB_OUT -p tcp --match multiport --sports "${ports[@]}" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p udp --match multiport --sports "${ports[@]}" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p tcp --match multiport --dports "${ports[@]}" -j ACCEPT
+	iptables -A NEW_ESTAB_OUT -p udp --match multiport --dports "${ports[@]}" -j ACCEPT
+
 
 	# RESTRICT HTTP/HTTPS purely to bcit.ca
-	iptables -I NEW_ESTAB_OUT -p tcp --match multiport --dports "$HTTP","$HTTPS" -d 142.232.230.11 -j ACCEPT
-	iptables -I NEW_ESTAB_IN -p tcp --match multiport --sports "$HTTP","$HTTPS" -s 142.232.230.11 -j ACCEPT		
+	iptables -I NEW_ESTAB_OUT -p tcp --match multiport --dports "$HTTP","$HTTPS" -d bcit.ca,142.232.230.11 -j ACCEPT
+	iptables -I NEW_ESTAB_IN -p tcp --match multiport --sports "$HTTP","$HTTPS" -s bcit.ca,142.232.230.11 -j ACCEPT		
 		
 	
 
