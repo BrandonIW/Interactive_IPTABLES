@@ -33,17 +33,18 @@ function main () {
 		exit 1
 	fi
 
-	check_chains
-	return_val=$?
-	if [[ "return_val" -eq 1 ]]; then
-		printf "You must first run the default_fw.sh script before this script to create user chains\n"
-		exit 1
-	fi
 
 	check_user
 	return_val=$?
 	if [[ "$return_val" -eq 1 ]]; then
 		printf "You must run this program as sudo\n"
+		exit 1
+	fi
+
+	check_chains
+	return_val=$?
+	if [[ "return_val" -eq 1 ]]; then
+		printf "You must first run the default_fw.sh script before this script to create user chains\n"
 		exit 1
 	fi
 
